@@ -1,0 +1,21 @@
+{
+  "name": "purescript-chronofold",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test:build": "spago bundle-app --main Test.Main --to ./output/test.js",
+    "test:watch": "spago bundle-app --watch --main Test.Main --to ./output/test.js --then \"npm run -s test:node\"",
+    "test:node": "mocha ./output/test.js",
+    "test:browser": "parcel test/index.html"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "mocha": "^8.2.1",
+    "parcel": "^1.12.4"
+  }
+}
