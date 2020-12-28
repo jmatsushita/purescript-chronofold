@@ -13,6 +13,7 @@ import Effect.Console (logShow)
 import Prelude (class Monad, Unit, bottom, discard, identity, map, ($), (<>))
 import Test.Spec (SpecT, describe, it)
 import Test.Spec.Assertions (shouldEqual)
+
 import Test.Spec.Reporter.Console (consoleReporter)
 import Test.Spec.Runner (runSpec)
 
@@ -164,16 +165,14 @@ tests = do
             betaOpM = buildSnocOp betaLogPINSKbackspace (codePointFromChar 'M')
             betaLogMINSK = appendOp betaLogPINSKbackspace betaOpM
 
-          liftEffect $ logShow betaLogPINSKbackspace
-          liftEffect $ logShow betaLogMINSK
+          -- liftEffect $ logShow betaLogPINSKbackspace
+          -- liftEffect $ logShow betaLogMINSK
           project betaLogMINSK `shouldEqual` "MINSK"
 
 main :: Effect Unit
 main = do
   -- Example
   -- example
-  -- browser tests
-  -- runMocha tests
 
   -- node tests
   launchAff_ $ runSpec [consoleReporter] tests

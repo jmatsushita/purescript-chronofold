@@ -7,15 +7,24 @@
     "test": "test"
   },
   "scripts": {
-    "test:build": "spago bundle-app --main Test.Main --to ./output/test.js",
-    "test:watch": "spago bundle-app --watch --main Test.Main --to ./output/test.js --then \"npm run -s test:node\"",
-    "test:node": "mocha ./output/test.js",
-    "test:browser": "parcel test/index.html"
+    "test:browser": "parcel test/index.html",
+    "test:browser:build": "spago bundle-app --main Test.Browser --to ./output/test.js",
+    "test:browser:watch": "spago bundle-app --watch --main Test.Browser --to ./output/test.js",
+    "test:browser:ci": "karma start",
+    "test:node": "spago test",
+    "test": "npm run -s test:node && npm run -s test:browser:build && npm run -s test:browser:ci"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "karma": "^5.2.3",
+    "karma-firefox-launcher": "^2.1.0",
+    "karma-mocha": "^2.0.1",
     "mocha": "^8.2.1",
-    "parcel": "^1.12.4"
-  }
+    "parcel": "^1.12.4",
+    "pre-push": "^0.1.1"
+  },
+  "pre-push": [
+    "test"
+  ]
 }
