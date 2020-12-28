@@ -22,7 +22,7 @@
     "karma-mocha": "^2.0.1",
     "mocha": "^8.2.1",
     "parcel": "^1.12.4",
-    "pre-push": "^0.1.1"
+    "pre-commit": "^1.2.2"
   },
   "pre-push": [
     "test"
