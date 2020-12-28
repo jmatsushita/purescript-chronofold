@@ -1,8 +1,6 @@
 module Test.Main where
 
-import Data.Chronofold (Index(..), Log(..), Op(..), Replica(..), Timestamp(..), appendOp, appendString, buildOp, emptyLog, naiveProject, root)
-import Prelude (class Monad, Unit, bottom, discard, identity, map, ($), (<>))
-
+import Data.Chronofold (Index(..), Log(..), Op(..), Replica(..), Timestamp(..), appendOp, appendString, buildCausalOp, buildSnocOp, emptyLog, naiveProject, project, root)
 import Data.Enum (toEnum)
 import Data.Map (fromFoldable)
 import Data.Maybe (Maybe(..), maybe)
@@ -10,6 +8,9 @@ import Data.String (codePointFromChar, singleton)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Aff (Aff, launchAff_)
+import Effect.Class (liftEffect)
+import Effect.Console (logShow)
+import Prelude (class Monad, Unit, bottom, discard, identity, map, ($), (<>))
 import Test.Spec (SpecT, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.Reporter.Console (consoleReporter)
@@ -85,7 +86,7 @@ tests = do
                   [ (Tuple (Timestamp alpha 1) Nothing)
                   , (Tuple (Timestamp alpha 2) (Just (Timestamp alpha 1)))]))
 
-        it "Checks naiveProject" $ do
+        it "Checks appendString & naiveProject" $ do
           let 
             alpha = Replica 1
             backspace = maybe "" identity $ map singleton (toEnum 0x0008)
@@ -95,72 +96,77 @@ tests = do
    
           naiveProject alphaLogPinsk `shouldEqual` "PINS"
 
-        it "Checks" $ do
+        it "Checks simple replication" $ do
           let 
+            -- Example from https://youtu.be/dKzMZsg5EVA?t=1614
             alpha = Replica 1
             beta = Replica 2
+
+            -- alphaLogRoot
+            -- ndx       1α 
+            -- val        0  
+            -- nxt        ∞     
+            -- t         α1 
+            -- ref        0
             alphaLogRoot = appendOp (emptyLog alpha) $ root alpha
 
-            alphaOpP = buildOp alphaLogRoot (codePointFromChar 'P')
+            -- alphaOpP
+            -- t            α2 
+            -- ref          α1
+            -- val           P
+            alphaOpP = buildSnocOp alphaLogRoot (codePointFromChar 'P')
+
+            -- alphaLogP
+            -- i          0  1
+            -- ndx       1α 2α 
+            -- val        0  P 
+            -- nxt       2α  ∞   
+            -- t         α1 α2
+            -- ref        0 α1 
             alphaLogP = appendOp alphaLogRoot alphaOpP
 
-            alphaOpI = buildOp alphaLogP (codePointFromChar 'I')
+            alphaOpI = buildSnocOp alphaLogP (codePointFromChar 'I')
             alphaLogPI = appendOp alphaLogP alphaOpI
 
-            alphaOpN = buildOp alphaLogPI (codePointFromChar 'N')
+            alphaOpN = buildSnocOp alphaLogPI (codePointFromChar 'N')
             alphaLogPIN = appendOp alphaLogPI alphaOpN
 
-            alphaOpS = buildOp alphaLogPIN (codePointFromChar 'S')
+            alphaOpS = buildSnocOp alphaLogPIN (codePointFromChar 'S')
             alphaLogPINS = appendOp alphaLogPIN alphaOpS
 
-            alphaOpK = buildOp alphaLogPINS (codePointFromChar 'K')
+            alphaOpK = buildSnocOp alphaLogPINS (codePointFromChar 'K')
             alphaLogPINSK = appendOp alphaLogPINS alphaOpK
 
             -- Starting with `emptyLog alpha` on beta, means that alpha started 
             -- the document, and we send the root operation from alpha to beta.
             betaLogRoot = appendOp (emptyLog beta) $ root alpha
+
+            -- betaLogP
+            -- i          0  1
+            -- ndx       1β 2β 
+            -- val        0  P 
+            -- nxt       2β  ∞   
+            -- t         β1 α2
+            -- ref        0 α1 
             betaLogP = appendOp betaLogRoot alphaOpP
+
             betaLogPI = appendOp betaLogP alphaOpI
             betaLogPIN = appendOp betaLogPI alphaOpN
             betaLogPINS = appendOp betaLogPIN alphaOpS
             betaLogPINSK = appendOp betaLogPINS alphaOpK
 
             backspace = maybe bottom identity $ toEnum 0x0008
-            -- buildOp requires a cursor position
-            betaOpbackspace = buildOp betaLogPINSK backspace
+            -- buildCausalOp inserts backspace after the timestamp of P
+            Op timestampAlphaOpP _ _ = alphaOpP
+            betaOpbackspace = buildCausalOp betaLogPINSK timestampAlphaOpP backspace
             betaLogPINSKbackspace = appendOp betaLogPINSK betaOpbackspace
 
-            betaOpM = buildOp betaLogPINSKbackspace (codePointFromChar 'M')
+            betaOpM = buildSnocOp betaLogPINSKbackspace (codePointFromChar 'M')
             betaLogMINSK = appendOp betaLogPINSKbackspace betaOpM
 
-          naiveProject betaLogMINSK `shouldEqual` "MINSK"
-          -- emptyLog alpha
-          -- ndx       1α 
-          -- val        0  
-          -- nxt        ∞     
-          -- t         α1 
-          -- ref        0
-
-          -- alphaOp
-          -- t            α2 
-          -- ref          α1
-          -- val           P
-
-          -- alphaLogP
-          -- i          0  1
-          -- ndx       1α 2α 
-          -- val        0  P 
-          -- nxt       2α  ∞   
-          -- t         α1 α2
-          -- ref        0 α1 
-
-          -- betaLogP
-          -- i          0  1
-          -- ndx       1β 2β 
-          -- val        0  P 
-          -- nxt       2β  ∞   
-          -- t         β1 α2
-          -- ref        0 α1 
+          liftEffect $ logShow betaLogPINSKbackspace
+          liftEffect $ logShow betaLogMINSK
+          project betaLogMINSK `shouldEqual` "MINSK"
 
 main :: Effect Unit
 main = do
@@ -193,12 +199,29 @@ main = do
 
 -- ndx       1α 2α 3α 4α 5α 6α 7α 
 -- val        0  P  I  N  S  K <= 
--- nxt       2α 3α 4α 5α 6α  ∞ 
+
+--            relinking the linked list                
+--               v              v 
+-- nxt       2α 7α 4α 5α 6α  ∞ 3α  
+
+-- t         α1 α2 α3 α4 α5 α6 β7   
+-- ref        0 α1 α2 α3 α4 α5 α2
 
 -- op
 -- t                               β8
 -- ref                             β7
 -- val                             M
+
+
+-- ndx       1α 2α 3α 4α 5α 6α 7α 8α 
+-- val        0  P  I  N  S  K <=  M
+
+--            relinking the linked list                
+--                              v  v 
+-- nxt       2α 7α 4α 5α 6α  ∞ 8α 3α  
+
+-- t         α1 α2 α3 α4 α5 α6 β7 β8
+-- ref        0 α1 α2 α3 α4 α5 α2 β7
 
 
 -- when an op is shared it's shared with values in timestamps (the shared coordinate system)

@@ -23,4 +23,4 @@ TBD
 
 ## Documentation
 
-TBD
+<!-- Module documentation is [published on Pursuit](http://pursuit.purescript.org/packages/purescript-chronofold). -->
