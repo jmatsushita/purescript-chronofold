@@ -1,15 +1,15 @@
 module Data.Chronofold.Buffer where
 
-import Control.MonadZero (guard)
+
 import Data.Array (foldl, (!!))
-import Data.Chronofold.Core (Index(..), Log(..), appendOp, buildSnocOp)
+import Data.Chronofold.Core (Index(..), Log(..))
 import Data.Enum (fromEnum)
-import Data.FoldableWithIndex (foldlWithIndex)
+
 import Data.Maybe (Maybe(..), maybe)
-import Data.String (CodePoint, splitAt, toCodePointArray)
+import Data.String (CodePoint, splitAt)
 import Data.String as S
 import Data.String.CodePoints (singleton)
-import Prelude (($), (-), (<>), (==), discard, bind, pure, identity)
+import Prelude (bind, identity, ($), (-), (<>))
 
 -- |
 -- | Build an `Op` which inserts the `CodePoint` at the given position.
@@ -18,10 +18,10 @@ import Prelude (($), (-), (<>), (==), discard, bind, pure, identity)
 -- buildInsertOp log@(Log (Timestamp rep i) a b c d e) val =
 --   Op (Timestamp rep (i + 1)) (Just (Timestamp rep (i))) val
 
-appendString :: Log -> String -> Log
-appendString l s = 
-  let chars = toCodePointArray s
-  in  foldl (\l' c -> appendOp l' $ buildSnocOp l' c) l chars 
+-- appendString :: Log -> String -> Log
+-- appendString l s = 
+--   let chars = toCodePointArray s
+--   in  foldl (\l' c -> appendOp l' $ buildSnocOp l' c) l chars 
 
 -- interpret the log into a String.
 -- project :: Log -> GPU TypedArray

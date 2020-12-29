@@ -3,19 +3,19 @@ module Data.Chronofold.Core where
 -- import Control.Monad.Update
 -- import Data.Monoid.Action
 
-import Data.Array (insertAt, length, snoc, unsnoc, updateAt, (!!))
+import Data.Array (insertAt, length, snoc, uncons, unsnoc, updateAt, (!!))
 import Data.Array as Array
 import Data.Bounded (bottom)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Eq (genericEq)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Map (Map, empty, insert, lookup, member)
-import Data.Maybe (Maybe(..))
-import Data.Newtype (overF)
-import Data.String (CodePoint)
+import Data.Maybe (Maybe(..), maybe)
+
+import Data.String (CodePoint, toCodePointArray)
 import Effect.Exception (error)
 import Effect.Exception.Unsafe (unsafeThrowException)
-import Prelude (class Eq, class Ord, class Show, compare, eq, show, ($), (&&), (+), (-), (<>), (==), bind, pure)
+import Prelude (class Eq, class Ord, class Show, bind, compare, eq, identity, pure, show, ($), (&&), (+), (-), (<>), (==))
 
 -- |
 -- | processes α β γ in the paper, for me replica is better than process/site/author
@@ -75,6 +75,7 @@ instance ordTimestamp :: Ord Timestamp where
 -- type Chronofold = Array ({ codepoint :: Value, next :: Int })
 -- in practice we use a thinned chronofold and offload the linked list management to a separate co-structure
 type Chronofold = Array CodePoint
+
 data Index = Index Int | Infinity
 instance showIndex :: Show Index where
   show Infinity = "∞"
@@ -96,7 +97,7 @@ type Next = Array Index
 -- ndx       1α 2α 3α 4α 5α 6α 7α 
 
 -- Map Timestamp Index
-type Ndx = Map Timestamp Index -- (α1, 1)
+type Ndx = Map Timestamp Int -- (α1, 1)
 -- type Ndx = Map Author (Array Index) -- (α, [1])
 
 -- ndx⁻¹ :: ndx -> t 
@@ -159,8 +160,9 @@ instance eqLog ::  Eq Log where eq = genericEq
 --     getState :: UpdateState Log
 --     getState = pure $ Log { replica : Replica 1, ops : []}
 
-
--- data Log = Log ReplicaIndex Chronofold Next NextInv Ref 
+ndxInv :: Log -> Int -> Maybe Timestamp
+ndxInv (Log _ _ _ _ ndxinv _) i = ndxinv !! i  
+-- data Log = Log Timestamp Chronofold Next Ndx NdxInv Ref 
 -- Op  t ref val
 
 ndxInvEndsWith :: Timestamp -> Array Timestamp -> Boolean
@@ -175,16 +177,20 @@ ndxInvEndsWith (Timestamp r i) ts = case unsnoc ts of
 -- | ```
 appendOp :: Log -> Op -> Log
 appendOp 
-  (Log (Timestamp r i) c next ndxM ndxinv ref) 
+  log@(Log (Timestamp r i) c next ndxM ndxinv ref) 
   op@(Op t@(Timestamp r' i') oref v) = 
     let 
       cur = length c -- current local index
       newNext = case oref of
         Nothing -> [Infinity]
-        Just oref' -> case ndxInvEndsWith oref' ndxinv of
+        Just oref' -> 
+          -- Is there a CT sibling?
+          -- case 
+          -- Are we appending at the end? 
+          case ndxInvEndsWith oref' ndxinv of
             true -> case insertAt (cur - 1) (Index $ cur) next of
               Just a   -> a
-              Nothing -> unsafeThrowException (error "index out of bounds in next")
+              Nothing -> unsafeThrowException (error $ "index out of bounds in next" <> show log <> "/" <> show op)
             -- we need to relink the linked list
             -- we mutate next[ndx(oref')]
             false -> case next'' of
@@ -193,17 +199,14 @@ appendOp
               where
                 next'' = do
                   ndxIndex <- lookup oref' ndxM
-                  ndxSwap <- case ndxIndex of
-                    Index n -> Just n
-                    Infinity -> Nothing
-                  nxtSwap <- next !! (ndxSwap - 1)
+                  nxtSwap <- next !! ndxIndex
                   -- could be a foreign import that swaps faster
-                  next' <- updateAt (ndxSwap - 1) (Index $ cur) next
+                  next' <- updateAt ndxIndex (Index $ cur) next
                   insertAt cur nxtSwap next'
               
       newNdxM = case member t ndxM of
                     true -> unsafeThrowException (error "didn't expect the timestamp to already exist in ndx")
-                    false -> insert t (Index $ cur + 1) ndxM
+                    false -> insert t cur ndxM
       newRef = case member t ref of
                     true -> unsafeThrowException (error "didn't expect the timestamp to already exist in ref")
                     false -> insert t oref ref
@@ -267,19 +270,59 @@ appendOps :: Log -> Array Op -> Log
 appendOps = Array.foldl appendOp
 
 -- |
--- | Build an `Op` which appends the `CodePoint` at the end of the weave.
+-- | Build an `Op` on the local `Log` appending the `CodePoint` at the end of the weave.
 -- |
 buildSnocOp :: Log -> CodePoint -> Op
-buildSnocOp log@(Log (Timestamp rep i) a b c d e) val =
-  Op (Timestamp rep (i + 1)) (Just (Timestamp rep (i))) val
+buildSnocOp log@(Log (Timestamp rep i) a b c ndxinv e) val =
+  case unsnoc ndxinv of 
+    Just {init, last} -> Op (Timestamp rep (i + 1)) (Just last) val
+    Nothing -> Op (Timestamp rep (i + 1)) Nothing val
 
 -- |
--- | Build an `Op` which inserts the `CodePoint` after the `Timestamp`,
+-- | Build an `Op` at `Replica` which inserts the `CodePoint` after the `Timestamp`,
 -- | i.e. the `ref` in the causal tree structure.
 -- |
 buildCausalOp :: Log -> Timestamp -> CodePoint -> Op
-buildCausalOp log@(Log (Timestamp rep i) a b c d e) t val =
-  Op (Timestamp rep (i + 1)) (Just t) val
+buildCausalOp log@(Log (Timestamp rep i) a b c d e) ref@(Timestamp rep' i') val =
+  Op (Timestamp rep (i + 1)) (Just ref) val
+
+buildSnocStringOps :: Log -> String -> Array Op
+buildSnocStringOps l s =
+  let chars = toCodePointArray s
+  in (Array.foldl go {ops: [] :: Array Op, log: l} chars).ops
+    where 
+      go {ops, log} c = 
+        let op = buildSnocOp log c
+        in  {ops: snoc ops $ op , log: appendOp log op}
+
+buildCausalStringOps :: Log ->Timestamp -> String -> Array Op
+buildCausalStringOps l ref s = maybe [] identity $ do
+  { head: ch, tail: chars} <- uncons $ toCodePointArray s
+  causalOp <- Just $ buildCausalOp l ref ch
+  pure $ (Array.foldl go {ops: [causalOp] :: Array Op, log: appendOp l causalOp} chars).ops
+    where 
+      go {ops, log} c = 
+        let op = buildSnocOp log c
+        in  {ops: snoc ops $ op , log: appendOp log op}
+
+-- buildSnocStringOps :: Log -> Replica -> String -> Array Op
+-- buildSnocStringOps l r s =
+--   let chars = toCodePointArray s
+--   in (Array.foldl go {ops: [] :: Array Op, log: l} chars).ops
+--     where 
+--       go {ops, log} c = 
+--         let op = buildSnocOp log r c
+--         in  {ops: snoc ops $ op , log: appendOp log op}
+
+-- buildCausalStringOps :: Log -> Replica ->Timestamp -> String -> Array Op
+-- buildCausalStringOps l r ref@(Timestamp r i) s = maybe [] identity $ do
+--   { head: ch, tail: chars} <- uncons $ toCodePointArray s
+--   causalOp <- Just $ buildCausalOp l ref ch
+--   pure $ (Array.foldl go {ops: [causalOp] :: Array Op, log: appendOp l causalOp} chars).ops
+--     where 
+--       go {ops, log} c = 
+--         let op = buildSnocOp log r c
+--         in  {ops: snoc ops $ op , log: appendOp log op}
 
 emptyLog :: Replica -> Log
 emptyLog rep = Log 

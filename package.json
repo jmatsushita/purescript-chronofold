@@ -12,6 +12,7 @@
     "test:browser:watch": "spago bundle-app --watch --main Test.Browser --to ./output/test.js",
     "test:browser:ci": "karma start",
     "test:node": "spago test",
+    "test:node:watch": "spago test --watch",
     "test": "npm run -s test:node && npm run -s test:browser:build && npm run -s test:browser:ci"
   },
   "author": "",
@@ -23,8 +24,5 @@
     "mocha": "^8.2.1",
     "parcel": "^1.12.4",
     "pre-commit": "^1.2.2"
-  },
-  "pre-push": [
-    "test"
-  ]
+  }
 }
