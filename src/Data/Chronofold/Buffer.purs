@@ -2,7 +2,7 @@ module Data.Chronofold.Buffer where
 
 
 import Data.Array (foldl, (!!))
-import Data.Chronofold.Core (Index(..), Log(..))
+import Data.Chronofold.Types (Index(..), Log(..))
 import Data.Enum (fromEnum)
 
 import Data.Maybe (Maybe(..), maybe)
@@ -43,13 +43,13 @@ project :: Log -> String
 project (Log _ codepoints next _ _ _) = go 0 "" codepoints next
   where
     go :: Int -> String -> Array CodePoint -> Array Index -> String
-    go i acc cps ndxs = maybe acc identity $ do
+    go i acc cps nexts = maybe acc identity $ do
       cp <- cps !! i
-      case ndxs !! i of
-        Just (Index ndx) -> do
+      case nexts !! i of
+        Just (Index nxt) -> do
           case fromEnum cp of 
-            0x0000 -> Just $ go ndx acc cps next -- skip 0
-            0x0008 -> Just $ go ndx (splitAt ((S.length acc) - 1) acc).before cps next
-            _      -> Just $ go ndx (acc <> singleton cp) cps next
+            0x0000 -> Just $ go nxt acc cps next -- skip 0
+            0x0008 -> Just $ go nxt (splitAt ((S.length acc) - 1) acc).before cps next
+            _      -> Just $ go nxt (acc <> singleton cp) cps next
         Just Infinity -> Just $ acc <> singleton cp
         Nothing -> Nothing

@@ -1,9 +1,11 @@
 module Data.Chronofold 
   ( module Data.Chronofold.Core
+  , module Data.Chronofold.Types
   , module Data.Chronofold.Buffer) where
 
 import Data.Chronofold.Core
 import Data.Chronofold.Buffer
+import Data.Chronofold.Types
 
 -- | Conceptually we have:
 -- | - a "shared" reference/space, in which 
