@@ -4,11 +4,11 @@ module Data.Chronofold.Buffer where
 import Data.Array (foldl, (!!))
 import Data.Chronofold.Types (Index(..), Log(..))
 import Data.Enum (fromEnum)
-
 import Data.Maybe (Maybe(..), maybe)
 import Data.String (CodePoint, splitAt)
 import Data.String as S
 import Data.String.CodePoints (singleton)
+import Data.String.CodeUnits (dropRight)
 import Prelude (bind, identity, ($), (-), (<>))
 
 -- |
@@ -48,8 +48,15 @@ project (Log _ codepoints next _ _ _) = go 0 "" codepoints next
       case nexts !! i of
         Just (Index nxt) -> do
           case fromEnum cp of 
+            --- skip 0 (root and other 0s)
             0x0000 -> Just $ go nxt acc cps next -- skip 0
-            0x0008 -> Just $ go nxt (splitAt ((S.length acc) - 1) acc).before cps next
+            -- 
+            0x0008 -> Just $ go nxt (dropRight 1 acc) cps next
             _      -> Just $ go nxt (acc <> singleton cp) cps next
-        Just Infinity -> Just $ acc <> singleton cp
+        Just Infinity -> 
+          case fromEnum cp of 
+            --- skip 0 (root and other 0s)
+            0x0000 -> Just $ acc <> singleton cp -- skip 0
+            0x0008 -> Just $ dropRight 1 acc
+            _      -> Just $ acc <> singleton cp
         Nothing -> Nothing

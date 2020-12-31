@@ -30,7 +30,7 @@ instance showTimestamp :: Show Timestamp where
 instance eqTimestamp :: Eq Timestamp where
   eq (Timestamp a i) (Timestamp b j) = eq a b && eq i j
 instance ordTimestamp :: Ord Timestamp where
-  compare (Timestamp a i) (Timestamp b j) = (compare b a) <> (compare i j)
+  compare (Timestamp a i) (Timestamp b j) = (compare a b) <> (compare i j)
 
 -- from the paper
 -- auth :: Timestamp -> Replica
@@ -107,7 +107,7 @@ type NdxInv = Array Timestamp
 -- ref is conceptually a function from timestamp to timestamp
 -- we turn it around to have parents as keys to detect CT siblings.
 -- Ref⁻¹ 
-type Ref = Map (Maybe Timestamp) Timestamp 
+type Ref = Map (Maybe Timestamp) (Array Timestamp)
 
 -- op
 -- t            α2

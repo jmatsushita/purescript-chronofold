@@ -1,26 +1,31 @@
 module Test.Data.Chronofold where
 
-import Prelude
+import Prelude (class Eq, class Ord, class Show, Unit, const, discard, show, ($), (+), (<$>), (<*>), (<>), (==))
 
-import Control.Alt ((<|>))
-import Data.Array as A
-import Data.Foldable (foldl, for_, all, and)
-import Data.FoldableWithIndex (foldrWithIndex)
-import Data.Function (on)
-import Data.FunctorWithIndex (mapWithIndex)
-import Data.List (List(..), groupBy, length, nubBy, singleton, sort, sortBy, (:))
-import Data.List.NonEmpty as NEL
+
+
+
+import Data.Foldable (foldl)
+
+
+
+import Data.List (List)
 import Data.Map as M
 import Data.Map.Gen (genMap)
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..))
 import Data.NonEmpty ((:|))
-import Data.Tuple (Tuple(..), fst, uncurry)
+import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Console (log)
-import Partial.Unsafe (unsafePartial)
-import Test.QuickCheck ((<?>), (===), quickCheck, quickCheck')
+
+import Test.QuickCheck (quickCheck, (<?>))
 import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.QuickCheck.Gen (elements, oneOf)
+
+
+
+-- instance arbReplica :: Arbitrary (Replica) where
+--   arbitrary = Replica <$> genBoundedEnum
 
 newtype TestMap k v = TestMap (M.Map k v)
 

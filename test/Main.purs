@@ -9,9 +9,6 @@ import Data.String (codePointFromChar, singleton)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Aff (Aff, launchAff_)
-import Effect.Class (liftEffect)
-import Effect.Class.Console (logShow)
-import Effect.Console (log)
 import Partial.Unsafe (unsafePartial)
 import Prelude (class Monad, Unit, bottom, discard, pure, unit, ($), (<>))
 import Test.Spec (SpecT, describe, it)
@@ -68,174 +65,178 @@ tests = do
     -- it "QuickChecks" $ do
     --   -- liftEffect $ log "Running Chronofold tests"
     --   chronofoldTests
-    -- it "Checks appendOp" $ do
-    --   let
-    --     alpha = Replica 1
-    --     alphaLogRoot = appendOp (emptyLog alpha) $ root alpha
+    it "Checks appendOp" $ do
+      let
+        alpha = Replica 1
+        alphaLogRoot = appendOp (emptyLog alpha) $ root alpha
 
-    --     op2alpha = Op (Timestamp alpha 2) (Just (Timestamp alpha 1)) (codePointFromChar 'P')
-    --     alphaLog2 = appendOp alphaLogRoot op2alpha
+        op2alpha = Op (Timestamp alpha 2) (Just (Timestamp alpha 1)) (codePointFromChar 'P')
+        alphaLog2 = appendOp alphaLogRoot op2alpha
       
-    --   alphaLog2 `shouldEqual` 
-    --       (Log 
-    --         (Timestamp alpha 2) 
-    --         [bottom, (codePointFromChar 'P')] 
-    --         [Index 1, Infinity] 
-    --         (fromFoldable 
-    --           [ (Tuple (Timestamp alpha 1) 0)
-    --           , (Tuple (Timestamp alpha 2) 1)])
-    --         [ (Timestamp alpha 1), (Timestamp alpha 2)] 
-    --         (fromFoldable 
-    --           [ (Tuple Nothing (Timestamp alpha 1) )
-    --           , (Tuple (Just (Timestamp alpha 1)) (Timestamp alpha 2))]))
+      alphaLog2 `shouldEqual` 
+          (Log 
+            (Timestamp alpha 2) 
+            [bottom, (codePointFromChar 'P')] 
+            [Index 1, Infinity] 
+            (fromFoldable 
+              [ (Tuple (Timestamp alpha 1) 0)
+              , (Tuple (Timestamp alpha 2) 1)])
+            [ (Timestamp alpha 1), (Timestamp alpha 2)] 
+            (fromFoldable 
+              [ (Tuple Nothing [Timestamp alpha 1] )
+              , (Tuple (Just (Timestamp alpha 1)) [Timestamp alpha 2])]))
 
-    -- -- it "Checks appendString & naiveProject" $ do
-    -- --   let 
-    -- --     alpha = Replica 1
-    -- --     backspace = maybe "" identity $ map singleton (toEnum 0x0008)
-    -- --     alphaLogRoot = appendOp (emptyLog alpha) $ root alpha
-
-    -- --     alphaLogPinsk = appendString alphaLogRoot $ "PINSK" <> backspace
-
-    -- --   naiveProject alphaLogPinsk `shouldEqual` "PINS"
-
-    -- it "Checks simple replication" $ do
+    -- it "Checks appendString & naiveProject" $ do
     --   let 
-    --     -- Example from https://youtu.be/dKzMZsg5EVA?t=1614
     --     alpha = Replica 1
-    --     beta = Replica 2
-
-    --     -- alphaLogRoot
-    --     -- ndx       1α 
-    --     -- val        0  
-    --     -- nxt        ∞     
-    --     -- t         α1 
-    --     -- ref        0
+    --     backspace = maybe "" identity $ map singleton (toEnum 0x0008)
     --     alphaLogRoot = appendOp (emptyLog alpha) $ root alpha
 
-    --     -- alphaOpP
-    --     -- t            α2 
-    --     -- ref          α1
-    --     -- val           P
-    --     alphaOpP = buildSnocOp alphaLogRoot (codePointFromChar 'P')
+    --     alphaLogPinsk = appendString alphaLogRoot $ "PINSK" <> backspace
 
-    --     -- alphaLogP
-    --     -- i          0  1
-    --     -- ndx       1α 2α 
-    --     -- val        0  P 
-    --     -- nxt       2α  ∞   
-    --     -- t         α1 α2
-    --     -- ref        0 α1 
-    --     alphaLogP = appendOp alphaLogRoot alphaOpP
+    --   naiveProject alphaLogPinsk `shouldEqual` "PINS"
 
-    --     alphaOpI = buildSnocOp alphaLogP (codePointFromChar 'I')
-    --     alphaLogPI = appendOp alphaLogP alphaOpI
+    it "Checks simple replication" $ do
+      let 
+        -- Example from https://youtu.be/dKzMZsg5EVA?t=1614
+        alpha = Replica 1
+        beta = Replica 2
 
-    --     alphaOpN = buildSnocOp alphaLogPI (codePointFromChar 'N')
-    --     alphaLogPIN = appendOp alphaLogPI alphaOpN
+        -- alphaLogRoot
+        -- ndx       1α 
+        -- val        0  
+        -- nxt        ∞     
+        -- t         α1 
+        -- ref        0
+        alphaLogRoot = appendOp (emptyLog alpha) $ root alpha
 
-    --     alphaOpS = buildSnocOp alphaLogPIN (codePointFromChar 'S')
-    --     alphaLogPINS = appendOp alphaLogPIN alphaOpS
+        -- alphaOpP
+        -- t            α2 
+        -- ref          α1
+        -- val           P
+        alphaOpP = buildSnocOp alphaLogRoot (codePointFromChar 'P')
 
-    --     alphaOpK = buildSnocOp alphaLogPINS (codePointFromChar 'K')
-    --     alphaLogPINSK = appendOp alphaLogPINS alphaOpK
+        -- alphaLogP
+        -- i          0  1
+        -- ndx       1α 2α 
+        -- val        0  P 
+        -- nxt       2α  ∞   
+        -- t         α1 α2
+        -- ref        0 α1 
+        alphaLogP = appendOp alphaLogRoot alphaOpP
 
-    --     -- Starting with `emptyLog alpha` on beta, means that alpha started 
-    --     -- the document, and we send the root operation from alpha to beta.
-    --     betaLogRoot = appendOp (emptyLog beta) $ root alpha
+        alphaOpI = buildSnocOp alphaLogP (codePointFromChar 'I')
+        alphaLogPI = appendOp alphaLogP alphaOpI
 
-    --     -- betaLogP
-    --     -- i          0  1
-    --     -- ndx       1β 2β 
-    --     -- val        0  P 
-    --     -- nxt       2β  ∞   
-    --     -- t         β1 α2
-    --     -- ref        0 α1 
-    --     betaLogP = appendOp betaLogRoot alphaOpP
+        alphaOpN = buildSnocOp alphaLogPI (codePointFromChar 'N')
+        alphaLogPIN = appendOp alphaLogPI alphaOpN
 
-    --     betaLogPI = appendOp betaLogP alphaOpI
-    --     betaLogPIN = appendOp betaLogPI alphaOpN
-    --     betaLogPINS = appendOp betaLogPIN alphaOpS
-    --     betaLogPINSK = appendOp betaLogPINS alphaOpK
+        alphaOpS = buildSnocOp alphaLogPIN (codePointFromChar 'S')
+        alphaLogPINS = appendOp alphaLogPIN alphaOpS
 
-    --     backspace = unsafePartial $ fromJust $ toEnum 0x0008
-    --     -- buildCausalOp inserts backspace after the timestamp of P
-    --     Op timestampAlphaOpP _ _ = alphaOpP
-    --     betaOpbackspace = buildCausalOp betaLogPINSK timestampAlphaOpP backspace
-    --     betaLogPINSKbackspace = appendOp betaLogPINSK betaOpbackspace
+        alphaOpK = buildSnocOp alphaLogPINS (codePointFromChar 'K')
+        alphaLogPINSK = appendOp alphaLogPINS alphaOpK
 
-    --     betaOpM = buildSnocOp betaLogPINSKbackspace (codePointFromChar 'M')
-    --     betaLogMINSK = appendOp betaLogPINSKbackspace betaOpM
+        -- Starting with `emptyLog alpha` on beta, means that alpha started 
+        -- the document, and we send the root operation from alpha to beta.
+        betaLogRoot = appendOp (emptyLog beta) $ root alpha
 
-    --   -- liftEffect $ logShow betaLogPINSKbackspace
-    --   -- liftEffect $ logShow betaLogMINSK
-    --   project betaLogMINSK `shouldEqual` "MINSK"
+        -- betaLogP
+        -- i          0  1
+        -- ndx       1β 2β 
+        -- val        0  P 
+        -- nxt       2β  ∞   
+        -- t         β1 α2
+        -- ref        0 α1 
+        betaLogP = appendOp betaLogRoot alphaOpP
+
+        betaLogPI = appendOp betaLogP alphaOpI
+        betaLogPIN = appendOp betaLogPI alphaOpN
+        betaLogPINS = appendOp betaLogPIN alphaOpS
+        betaLogPINSK = appendOp betaLogPINS alphaOpK
+
+        backspace = unsafePartial $ fromJust $ toEnum 0x0008
+        -- buildCausalOp inserts backspace after the timestamp of P
+        Op timestampAlphaOpP _ _ = alphaOpP
+        betaOpbackspace = buildCausalOp betaLogPINSK timestampAlphaOpP backspace
+        betaLogPINSKbackspace = appendOp betaLogPINSK betaOpbackspace
+
+        betaOpM = buildSnocOp betaLogPINSKbackspace (codePointFromChar 'M')
+        betaLogMINSK = appendOp betaLogPINSKbackspace betaOpM
+
+      -- liftEffect $ logShow betaLogPINSK
+      -- liftEffect $ logShow betaOpbackspace
+      -- liftEffect $ logShow betaLogPINSKbackspace
+      -- liftEffect $ log $ project betaLogPINSKbackspace
+      -- liftEffect $ logShow betaLogMINSK
+      -- liftEffect $ log $ project betaLogMINSK
+      project betaLogMINSK `shouldEqual` "MINSK"
 
 
-    -- it "Checks buildSnocStringOps and buildCausalStringOps" $ do
-    --   let 
-    --     alpha = Replica 1
-    --     beta = Replica 2
+    it "Checks buildSnocStringOps and buildCausalStringOps" $ do
+      let 
+        alpha = Replica 1
+        beta = Replica 2
 
-    --     alphaOpRoot = root alpha
-    --     alphaLogRoot = appendOp (emptyLog alpha) alphaOpRoot
+        alphaOpRoot = root alpha
+        alphaLogRoot = appendOp (emptyLog alpha) alphaOpRoot
 
-    --     alphaOpsPINSK = buildSnocStringOps alphaLogRoot "PINSK"
-    --     alphaLogPINSK = appendOps alphaLogRoot alphaOpsPINSK
+        alphaOpsPINSK = buildSnocStringOps alphaLogRoot "PINSK"
+        alphaLogPINSK = appendOps alphaLogRoot alphaOpsPINSK
 
-    --     betaLogRoot = appendOp (emptyLog beta) alphaOpRoot
-    --     betaLogPINSK = appendOps betaLogRoot alphaOpsPINSK
+        betaLogRoot = appendOp (emptyLog beta) alphaOpRoot
+        betaLogPINSK = appendOps betaLogRoot alphaOpsPINSK
 
-    --     -- we find the insertion point 
-    --     betaInsertionTimestamp = unsafePartial $ fromJust $ ndxInv betaLogPINSK 1
+        -- we find the insertion point 
+        betaInsertionTimestamp = unsafePartial $ fromJust $ ndxInv betaLogPINSK 1
 
-    --     backspace = unsafePartial $ fromJust $ toEnum 0x0008
-    --     betaOpsbackspaceM = buildCausalStringOps betaLogPINSK betaInsertionTimestamp $ (singleton backspace) <> "M"
+        backspace = unsafePartial $ fromJust $ toEnum 0x0008
+        betaOpsbackspaceM = buildCausalStringOps betaLogPINSK betaInsertionTimestamp $ (singleton backspace) <> "M"
 
-    --     betaLogMINSK = appendOps betaLogPINSK betaOpsbackspaceM
+        betaLogMINSK = appendOps betaLogPINSK betaOpsbackspaceM
 
-    --   project betaLogMINSK `shouldEqual` "MINSK"
+      project betaLogMINSK `shouldEqual` "MINSK"
 
-    -- it "Checks replication with 3 replicas and no conflicts" $ do
-    --   let 
-    --     -- Example from https://youtu.be/dKzMZsg5EVA?t=1614
-    --     alpha = Replica 1
-    --     beta = Replica 2
-    --     gamma = Replica 3
+    it "Checks replication with 3 replicas and no conflicts" $ do
+      let 
+        -- Example from https://youtu.be/dKzMZsg5EVA?t=1614
+        alpha = Replica 1
+        beta = Replica 2
+        gamma = Replica 3
 
-    --     alphaOpRoot = root alpha
-    --     alphaLogRoot = appendOp (emptyLog alpha) alphaOpRoot
+        alphaOpRoot = root alpha
+        alphaLogRoot = appendOp (emptyLog alpha) alphaOpRoot
 
-    --     alphaOpsPINSK = buildSnocStringOps alphaLogRoot  "PINSK"
-    --     alphaLogAlpha6 = appendOps alphaLogRoot alphaOpsPINSK
+        alphaOpsPINSK = buildSnocStringOps alphaLogRoot  "PINSK"
+        alphaLogAlpha6 = appendOps alphaLogRoot alphaOpsPINSK
 
-    --     -- -- Starting with `emptyLog alpha` on beta, means that alpha started 
-    --     -- -- the document, and we send the root operation from alpha to beta.
-    --     betaLogRoot = appendOp (emptyLog beta) alphaOpRoot
-    --     betaLogAlpha6 = appendOps betaLogRoot alphaOpsPINSK
+        -- -- Starting with `emptyLog alpha` on beta, means that alpha started 
+        -- -- the document, and we send the root operation from alpha to beta.
+        betaLogRoot = appendOp (emptyLog beta) alphaOpRoot
+        betaLogAlpha6 = appendOps betaLogRoot alphaOpsPINSK
 
-    --     -- we find the insertion point 
-    --     betaInsertionTimestamp = unsafePartial $ fromJust $ ndxInv betaLogAlpha6 1
+        -- we find the insertion point 
+        betaInsertionTimestamp = unsafePartial $ fromJust $ ndxInv betaLogAlpha6 1
 
-    --     backspace = unsafePartial $ fromJust $ toEnum 0x0008
-    --     betaOpsbackspaceM = buildCausalStringOps betaLogAlpha6 betaInsertionTimestamp $ (singleton backspace) <> "M"
+        backspace = unsafePartial $ fromJust $ toEnum 0x0008
+        betaOpsbackspaceM = buildCausalStringOps betaLogAlpha6 betaInsertionTimestamp $ (singleton backspace) <> "M"
 
-    --     betaLogAlpha6Beta8 = appendOps betaLogAlpha6 betaOpsbackspaceM
+        betaLogAlpha6Beta8 = appendOps betaLogAlpha6 betaOpsbackspaceM
 
-    --     gammaLogRoot = appendOp (emptyLog gamma) alphaOpRoot
-    --     gammaLogAlpha6 = appendOps gammaLogRoot alphaOpsPINSK
+        gammaLogRoot = appendOp (emptyLog gamma) alphaOpRoot
+        gammaLogAlpha6 = appendOps gammaLogRoot alphaOpsPINSK
 
-    --     gammaOpsbackspace4insk = buildSnocStringOps gammaLogAlpha6 $ power (singleton backspace) 4 <> "insk"
+        gammaOpsbackspace4insk = buildSnocStringOps gammaLogAlpha6 $ power (singleton backspace) 4 <> "insk"
 
-    --     gammaLogAlpha6Gamma14 = appendOps gammaLogAlpha6 gammaOpsbackspace4insk
+        gammaLogAlpha6Gamma14 = appendOps gammaLogAlpha6 gammaOpsbackspace4insk
 
-    --     gammaLogAlpha6Gamma14Beta8 = appendOps gammaLogAlpha6Gamma14 betaOpsbackspaceM 
+        gammaLogAlpha6Gamma14Beta8 = appendOps gammaLogAlpha6Gamma14 betaOpsbackspaceM 
 
-    --     betaLogAlpha6Beta8Gamma14 = appendOps betaLogAlpha6Beta8 gammaOpsbackspace4insk
+        betaLogAlpha6Beta8Gamma14 = appendOps betaLogAlpha6Beta8 gammaOpsbackspace4insk
 
-    --   project betaLogAlpha6Beta8Gamma14 `shouldEqual` "Minsk"
-    --   project gammaLogAlpha6Gamma14Beta8 `shouldEqual` project betaLogAlpha6Beta8Gamma14
-    --   pure unit
+      project betaLogAlpha6Beta8Gamma14 `shouldEqual` "Minsk"
+      project gammaLogAlpha6Gamma14Beta8 `shouldEqual` project betaLogAlpha6Beta8Gamma14
+      pure unit
 
     it "Checks replication with conflicts" $ do
       let 
@@ -302,42 +303,72 @@ tests = do
         -- t         α1 α2 α3 α4 α5 α6 α7 α8 α9 β5 β6 β7
         -- ref        0 α1 α2 α3 α4 α5 α6 α7 α8 α4 β5 β6
 
-        -- oneLogCTRLALTDEL = appendOps oneLogCTRL (twoOpsDEL <> threeOpsALT)
-
-        -- twoLogCTRLALTDEL = appendOps twoLogCMDDEL (oneOpsbackspace2TRL <> threeOpsALT)
+        oneLogCTRLALTDEL = appendOps oneLogCTRL (twoOpsDEL <> threeOpsALT)
+        twoLogCTRLALTDEL = appendOps twoLogCMDDEL (oneOpsbackspace2TRL <> threeOpsALT)
         threeLogCTRLALTDEL = appendOps threeLogCMDALT (twoOpsDEL <> oneOpsbackspace2TRL)
 
-      -- project twoLogCMDDEL `shouldEqual` "CMDDEL"
-      -- project threeLogCMDALT `shouldEqual` "CMDALT"
-      -- project oneLogCTRL `shouldEqual` "CTRL"
+      -- liftEffect $ logShow oneLogCTRL
+      -- liftEffect $ log $ project oneLogCTRL
+      -- liftEffect $ logShow twoOpsDEL
+      -- liftEffect $ logShow $ appendOps oneLogCTRL twoOpsDEL
+      -- liftEffect $ log $ project $ appendOps oneLogCTRL twoOpsDEL
+      
+      project oneLogCTRLALTDEL `shouldEqual` "CTRLDELALT"
+      project twoLogCTRLALTDEL `shouldEqual` "CTRLDELALT"
+      project threeLogCTRLALTDEL `shouldEqual` "CTRLDELALT"
+      pure unit
 
-      -- liftEffect $ logShow $ oneLogCTRL 
-      -- liftEffect $ logShow $ twoOpsDEL       
-      -- liftEffect $ logShow $ appendOps oneLogCTRL twoOpsDEL       
-      -- liftEffect $ log $ project $ appendOps oneLogCTRL twoOpsDEL       
-      -- liftEffect $ log $ project oneLogCTRLALTDEL       
-      -- liftEffect $ log $ project twoLogCTRLALTDEL       
-      liftEffect $ log $ project threeLogCTRLALTDEL       
-      -- project oneLogCTRLALTDEL `shouldEqual` "CTRLALTDEL"
-      -- project twoLogCTRLALTDEL `shouldEqual` "CTRLALTDEL"
+    it "Checks replication with conflicts - variation" $ do
+      -- Same as above but with site 3 doig the backspace x 2 TRL.
+      let
+        one = Replica 1
+        three = Replica 2
+        two = Replica 3
+        oneOpRoot = root one
+        oneLogRoot = appendOp (emptyLog one) oneOpRoot
+        oneOpsCMD = buildSnocStringOps oneLogRoot "CMD"
+        oneLogCMD = appendOps oneLogRoot oneOpsCMD
+        twoLogRoot = appendOp (emptyLog two) oneOpRoot
+        twoLogCMD = appendOps twoLogRoot oneOpsCMD
+        threeLogRoot = appendOp (emptyLog three) oneOpRoot
+        threeLogCMD = appendOps threeLogRoot oneOpsCMD
+
+        twoOpsDEL = buildSnocStringOps twoLogCMD "DEL"
+        twoLogCMDDEL = appendOps twoLogCMD twoOpsDEL
+
+        threeOpsALT = buildSnocStringOps threeLogCMD "ALT"
+        threeLogCMDALT = appendOps threeLogCMD threeOpsALT
+
+        backspace = unsafePartial $ fromJust $ toEnum 0x0008
+        
+        oneOpsbackspace2TRL = buildSnocStringOps oneLogCMD $ power (singleton backspace) 2 <> "TRL"
+
+        oneLogCTRL = appendOps oneLogCMD oneOpsbackspace2TRL
+
+        oneLogCTRLALTDEL = appendOps oneLogCTRL (twoOpsDEL <> threeOpsALT)
+        twoLogCTRLALTDEL = appendOps twoLogCMDDEL (oneOpsbackspace2TRL <> threeOpsALT)
+        threeLogCTRLALTDEL = appendOps threeLogCMDALT (twoOpsDEL <> oneOpsbackspace2TRL)
+
+      project oneLogCTRLALTDEL `shouldEqual` "CTRLALTDEL"
+      project twoLogCTRLALTDEL `shouldEqual` "CTRLALTDEL"
       project threeLogCTRLALTDEL `shouldEqual` "CTRLALTDEL"
       pure unit
 
-    it "Checks replication with conflicts and sub causal trees" $ do
-              -- 0 - A - B - C - ∞ 
-              --       \ 
-              --         D - E
-              --           \
-              --            F 
-      true `shouldEqual` false
+    -- it "Checks replication with conflicts and sub causal trees" $ do
+    --   -- 0 - A - B - C - ∞ 
+    --   --       \ 
+    --   --         D - E
+    --   --           \
+    --   --            F 
+    --   true `shouldEqual` false
 
-    it "Checks replication with conflicts and partitioned sub causal trees" $ do
-              -- 0 - A(α1) - B(α2) - C(α3) - ∞ 
-              --       \ 
-              --         D(β2) - E(β3) - G(δ4)
-              --           \
-              --            F(γ3)
-      true `shouldEqual` false
+    -- it "Checks replication with conflicts and partitioned sub causal trees" $ do
+    --   -- 0 - A(α1) - B(α2) - C(α3) - ∞ 
+    --   --       \ 
+    --   --         D(β2) - E(β3) - G(δ4)
+    --   --           \
+    --   --            F(γ3)
+    --   true `shouldEqual` false
 
 
 main :: Effect Unit

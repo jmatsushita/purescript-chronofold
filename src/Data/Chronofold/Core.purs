@@ -9,17 +9,18 @@ import Control.Applicative ((<$>), (<*>))
 import Data.Array (drop, findLastIndex, insertAt, length, snoc, uncons, unsnoc, updateAt, (!!))
 import Data.Array as Array
 import Data.Bounded (bottom)
-import Data.Chronofold.Buffer (project)
+
+import Data.Enum (fromEnum)
 import Data.Map (empty, insert, lookup, member)
 import Data.Maybe (Maybe(..), maybe)
-import Data.Ordering (Ordering(..))
+
 import Data.String (CodePoint, toCodePointArray)
-import Debug.Trace (spy)
+
 import Effect.Exception (error)
 import Effect.Exception.Unsafe (unsafeThrowException)
-import Prelude (bind, compare, const, identity, pure, show, ($), (+), (-), (<>), (==))
-import Prim.Ordering (GT, LT)
-import Test.Data.Chronofold (SmallKey(..))
+import Prelude (bind, identity, pure, show, ($), (+), (-), (<>), (==))
+
+
 
 ndxInv :: Log -> Int -> Maybe Timestamp
 ndxInv (Log _ _ _ _ ndxinv _) i = ndxinv !! i  
@@ -54,60 +55,72 @@ appendOp
             
             -- there might be a preemptive CT sibling
             false -> 
-
-              case lookup opref ref of
-                
-                -- Is there a CT sibling?
-                Just priorityref -> 
-                  -- We'll remove this map probably, but until then, we store 
-                  -- the highest priority CT branch
-                  case spy "compare" $ compare (spy "opref'" opref') (spy "priorityref" priorityref) of -- unsafeThrowException (error $ "Preemptive CT sibling" <> project log <> "/" <> show op)
-                    -- the sibling has higher priority than us, so we insert after the 
-                    -- CT branch of the preemptive sibling
-                    LT -> case next''' priorityref of
-                      Just a   -> const (spy "next'''" a) (spy "op" op)
-                      Nothing -> unsafeThrowException (error $ "error relinking the linked list")
-                    -- we have higher priority so we just insert and relink as usual.
-                    GT -> case next'' of
+              if (fromEnum v == 0x0008) 
+              -- deletes have priority, we don't need to follow the "subtree" 
+              then case next'' of
                       Just a   -> a
                       Nothing -> unsafeThrowException (error $ "error relinking the linked list")
-                    EQ -> unsafeThrowException (error $ "We're trying to insert the same op twice")
-                
-                -- There isn't a CT sibling
-                -- we need to relink the linked list
-                -- we mutate next[ndx(opref')]
-                Nothing -> case next'' of
-                    Just a   -> a
-                    Nothing -> unsafeThrowException (error $ "error relinking the linked list")
 
-                where 
-                  next'' = do
-                      ndxIndex <- lookup opref' ndxM
-                      nxtSwap <- next !! ndxIndex
-                      -- could be a foreign import that swaps faster
-                      next' <- updateAt ndxIndex (Index $ end) next
-                      insertAt end nxtSwap next'
-                  next''' pref@(Timestamp r1 _) = do
-                      ndxPriority <- lookup pref ndxM
-                      ndxPriorityLast <- (+) <$> Just ndxPriority <*> (findLastIndex (\(Timestamp r1' _) -> r1 == r1') $ drop ndxPriority ndxinv)
-                      nxtSwap <- next !! (spy "ndxPriorityLast" ndxPriorityLast)
-                      -- could be a foreign import that swaps faster
-                      next' <- updateAt ndxPriorityLast (Index $ end) $ spy "next" next
-                      insertAt end (spy "nxtSwap" $ nxtSwap) $ spy "next'" next'
+              else 
+                case lookup opref newRef of
+                  -- Are there CT siblings?
+                  Just siblings -> -- [α3,β7]
+                    -- We'll remove this map probably, but until then, we store 
+                    -- the highest priority CT branch
+                    case Array.elemIndex t siblings of
+                      Just ourSiblingIndex ->
+                        case siblings !! (ourSiblingIndex - 1) of 
+                          -- that's our adjacent older sibling
+                          -- the sibling has higher priority than us, so we insert after the 
+                          -- CT branch of the preemptive sibling
+                          -- Just priorityref -> case next'' of
+                          --   Just a   -> a -- const (spy "next'''" a) (spy "op" op)
+                          --   Nothing -> unsafeThrowException (error $ "error relinking the linked list")
+
+                          Just priorityref -> case next''' priorityref of
+                            Just a   -> a
+                            Nothing -> unsafeThrowException (error $ "error relinking the linked list")
+                          -- we have higher priority so we just insert and relink as usual.
+                          Nothing -> 
+                            case next'' of
+                              Just a   -> a
+                              Nothing -> unsafeThrowException (error $ "error relinking the linked list") 
+                      Nothing -> unsafeThrowException (error $ "invariant violation. we just inserted t in newRef") 
+                  -- There isn't a CT sibling
+                  -- we need to relink the linked list
+                  -- we mutate next[ndx(opref')]
+                  Nothing -> case next'' of
+                      Just a   -> a
+                      Nothing -> unsafeThrowException (error $ "error relinking the linked list")
+
+                  where 
+                    next'' = do
+                        ndxIndex <- lookup opref' ndxM
+                        nxtSwap <- next !! ndxIndex
+                        -- could be a foreign import that swaps faster
+                        next' <- updateAt ndxIndex (Index $ end) next
+                        insertAt end nxtSwap next'
+                    next''' pref@(Timestamp r1 _) = do
+                        ndxPriority <- lookup pref ndxM -- 2
+                        ndxPriorityLast <- (+) <$> Just ndxPriority <*> (findLastIndex (\(Timestamp r1' _) -> r1 == r1') $ drop ndxPriority ndxinv)
+                        nxtSwap <- next !! ndxPriorityLast
+                        -- could be a foreign import that swaps faster
+                        next' <- updateAt ndxPriorityLast (Index $ end) $ next
+                        insertAt end nxtSwap $ next'
 
 
-                  -- t         α1 α2 α3 α4 α5 α6 α7 α8 α9 β5 β6 β7
-                  -- ref        0 α1 α2 α3 α4 α5 α6 α7 α8 α4 β5 β6
+                    -- t         α1 α2 α3 α4 α5 α6 α7 α8 α9 β5 β6 β7
+                    -- ref        0 α1 α2 α3 α4 α5 α6 α7 α8 α4 β5 β6
 
-                  -- 0 - A(α1) - B(α2) - C(α3) - ∞ 
-                  --       \ 
-                  --         D(β2) - E(β3) - G(δ4)
-                  --           \
-                  --            F(γ3)
+                    -- 0 - A(α1) - B(α2) - C(α3) - ∞ 
+                    --       \ 
+                    --         D(β2) - E(β3) - G(δ4)
+                    --           \
+                    --            F(γ3)
 
-                  -- 0(α1) - C(α2) - M(α3) - D(α4) - <=(α5) - <=(α6) - T(α7) - R(α8) - L(α9) - ∞ 
-                  --                             \ 
-                  --                              D(β5) - E(β6) - L(β7)
+                    -- 0(α1) - C(α2) - M(α3) - D(α4) - <=(α5) - <=(α6) - T(α7) - R(α8) - L(α9) - ∞ 
+                    --                             \ 
+                    --                              D(β5) - E(β6) - L(β7)
 
 
               
@@ -115,14 +128,15 @@ appendOp
                     true -> unsafeThrowException (error "didn't expect the timestamp to already exist in ndx")
                     false -> insert t end ndxM
       newRef = case lookup opref ref of
-                Just priorityref -> 
+                Just siblings -> 
                   -- We'll remove this map probably, but until then, we store 
                   -- the highest priority CT branch
-                  case compare opref (Just priorityref) of -- unsafeThrowException (error $ "Preemptive CT sibling" <> project log <> "/" <> show op)
-                    LT -> ref
-                    GT -> insert opref t ref
-                    EQ -> unsafeThrowException (error $ "We're trying to insert the same op twice")
-                Nothing -> insert opref t ref
+                  insert opref (Array.insert t siblings) ref
+                  -- case compare opref (Just priorityref) of -- unsafeThrowException (error $ "Preemptive CT sibling" <> project log <> "/" <> show op)
+                  --   LT -> ref
+                  --   GT -> insert opref t ref
+                  --   EQ -> unsafeThrowException (error $ "We're trying to insert the same op twice")
+                Nothing -> insert opref [t] ref
       newNdxInv = case (insertAt end t ndxinv) of
         Just a  -> a
         Nothing -> unsafeThrowException (error "index out of bounds in ndx⁻¹")
