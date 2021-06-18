@@ -6,8 +6,10 @@ import Data.Generic.Rep.Show (genericShow)
 import Data.Map (Map)
 import Data.Maybe (Maybe)
 import Data.String (CodePoint)
-
-import Prelude (class Eq, class Ord, class Show, compare, eq, show, ($), (&&), (+), (<>), (==))
+import Foreign (ForeignError(..), fail, readArray, unsafeFromForeign, unsafeToForeign)
+import Foreign.Class (class Decode, class Encode)
+import Foreign.Generic (defaultOptions, genericDecode, genericEncode)
+import Prelude (class Eq, class Ord, class Show, compare, eq, show, ($), (&&), (+), (<$>), (<*>), (<>), (==), (>=>))
 
 -- |
 -- | processes α β γ in the paper, for me replica is better than process/site/author
@@ -16,6 +18,11 @@ newtype Replica = Replica Int
 derive newtype instance showReplica :: Show Replica
 derive newtype instance ordReplica :: Ord Replica
 derive newtype instance eqReplica :: Eq Replica
+derive instance genericReplica :: Generic Replica _
+instance decodeReplica :: Decode Replica where
+  decode = genericDecode $ defaultOptions {unwrapSingleConstructors = true}
+instance encodeReplica :: Encode Replica where
+  encode = genericEncode $ defaultOptions {unwrapSingleConstructors = true}
 
 type ReplicaIndex = Int
 -- derive newtype instance showReplicaIndex :: Show ReplicaIndex
@@ -31,6 +38,13 @@ instance eqTimestamp :: Eq Timestamp where
   eq (Timestamp a i) (Timestamp b j) = eq a b && eq i j
 instance ordTimestamp :: Ord Timestamp where
   compare (Timestamp a i) (Timestamp b j) = (compare a b) <> (compare i j)
+
+derive instance genericTimestamp :: Generic Timestamp _
+instance decodeTimestamp :: Decode Timestamp where
+  decode = genericDecode $ defaultOptions {unwrapSingleConstructors = true}
+instance encodeTimestamp :: Encode Timestamp where
+  encode = genericEncode $ defaultOptions {unwrapSingleConstructors = true}
+
 
 -- from the paper
 -- auth :: Timestamp -> Replica
@@ -125,7 +139,22 @@ type Ref = Map (Maybe Timestamp) (Array Timestamp)
 data Op = Op Timestamp (Maybe (Timestamp)) CodePoint
 derive instance genericOp :: Generic Op _
 instance showOp :: Show Op where show = genericShow
-             
+instance decodeOp :: Decode Op where
+  decode = readArray >=> case _ of
+    [t,r,v] -> Op 
+      <$> genericDecode (defaultOptions {unwrapSingleConstructors = true}) t
+      <*> genericDecode (defaultOptions {unwrapSingleConstructors = true}) r
+      <*> unsafeFromForeign v      
+    _ -> fail $ ForeignError "Couldn't decode Op"
+
+instance encodeOp :: Encode Op where
+  encode (Op t r v) = unsafeToForeign 
+    [ genericEncode (defaultOptions {unwrapSingleConstructors = true}) t
+    , genericEncode (defaultOptions {unwrapSingleConstructors = true}) r
+    , unsafeToForeign v
+    ]
+
+
 -- |             thinned Chonofold
 -- |                     |                   
 -- |  current timestamp  |     weave       causal tree
