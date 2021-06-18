@@ -7,6 +7,7 @@
     "test": "test"
   },
   "scripts": {
+    "bench": "spago build && node -e \"require('./output/Benchmark').main()\"",
     "test:browser": "parcel test/index.html",
     "test:browser:build": "spago bundle-app --main Test.Browser --to ./output/test.js",
     "test:browser:watch": "spago bundle-app --watch --main Test.Browser --to ./output/test.js",
@@ -18,6 +19,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "benchmark": "^2.1.4",
     "karma": "^5.2.3",
     "karma-firefox-launcher": "^2.1.0",
     "karma-mocha": "^2.0.1",
