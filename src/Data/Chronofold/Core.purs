@@ -125,7 +125,7 @@ appendOp
 
               
       newNdxM = case member t ndxM of
-                    true -> unsafeThrowException (error "didn't expect the timestamp to already exist in ndx")
+                    true -> unsafeThrowException (error $ "didn't expect the timestamp to already exist in ndx" <> show log <> "/" <> show op)
                     false -> insert t end ndxM
       newRef = case lookup opref ref of
                 Just siblings -> 
@@ -222,7 +222,7 @@ buildSnocStringOps l s =
         let op = buildSnocOp log c
         in  {ops: snoc ops $ op , log: appendOp log op}
 
-buildCausalStringOps :: Log ->Timestamp -> String -> Array Op
+buildCausalStringOps :: Log -> Timestamp -> String -> Array Op
 buildCausalStringOps l ref s = maybe [] identity $ do
   { head: ch, tail: chars} <- uncons $ toCodePointArray s
   causalOp <- Just $ buildCausalOp l ref ch
