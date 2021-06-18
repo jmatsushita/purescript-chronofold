@@ -3,9 +3,9 @@ module Data.Chronofold
   , module Data.Chronofold.Types
   , module Data.Chronofold.Buffer) where
 
-import Data.Chronofold.Core
-import Data.Chronofold.Buffer
-import Data.Chronofold.Types
+import Data.Chronofold.Core (appendOp, appendOps, buildCausalOp, buildCausalStringOps, buildSnocOp, buildSnocStringOps, emptyLog, ndxInv, ndxInvEndsWith, root) (appendOp, appendOps, buildCausalOp, buildCausalStringOps, buildSnocOp, buildSnocStringOps, emptyLog, ndxInv, ndxInvEndsWith, root)
+import Data.Chronofold.Buffer (naiveProject, project)
+import Data.Chronofold.Types (Chronofold, Index(..), Log(..), Ndx, NdxInv, Next, Op(..), Ref, Replica(..), ReplicaIndex, Timestamp(..))
 
 -- | Conceptually we have:
 -- | - a "shared" reference/space, in which 
